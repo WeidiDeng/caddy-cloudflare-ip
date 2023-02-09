@@ -1,4 +1,4 @@
-module caddy-cloudflare-ip
+module github.com/WeidiDeng/caddy-cloudflare-ip
 
 go 1.20
 

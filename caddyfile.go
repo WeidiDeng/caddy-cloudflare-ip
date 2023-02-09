@@ -25,9 +25,9 @@ func init() {
 // CloudflareIPRange provides a range of IP address prefixes (CIDRs) retrieved from cloudflare.
 type CloudflareIPRange struct {
 	// refresh Interval
-	Interval caddy.Duration
+	Interval caddy.Duration `json:"interval"`
 	// request Timeout
-	Timeout caddy.Duration
+	Timeout caddy.Duration `json:"timeout"`
 
 	// Holds the parsed CIDR ranges from Ranges.
 	ranges []netip.Prefix
