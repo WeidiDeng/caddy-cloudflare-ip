@@ -3,14 +3,14 @@ package caddy_cloudflare_ip
 import (
 	"bufio"
 	"context"
-	"github.com/caddyserver/caddy/v2/caddyconfig/caddyfile"
-	"github.com/caddyserver/caddy/v2/modules/caddyhttp"
 	"net/http"
 	"net/netip"
 	"sync"
 	"time"
 
 	"github.com/caddyserver/caddy/v2"
+	"github.com/caddyserver/caddy/v2/caddyconfig/caddyfile"
+	"github.com/caddyserver/caddy/v2/modules/caddyhttp"
 )
 
 const (
@@ -44,8 +44,16 @@ func (CloudflareIPRange) CaddyModule() caddy.ModuleInfo {
 	}
 }
 
+// getContext returns a cancelable context, with a timeout if configured.
+func (s *CloudflareIPRange) getContext() (context.Context, context.CancelFunc) {
+	if s.Timeout > 0 {
+		return context.WithTimeout(s.ctx, time.Duration(s.Timeout))
+	}
+	return context.WithCancel(s.ctx)
+}
+
 func (s *CloudflareIPRange) fetch(api string) ([]netip.Prefix, error) {
-	ctx, cancel := context.WithTimeout(s.ctx, time.Duration(s.Timeout))
+	ctx, cancel := s.getContext()
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, api, nil)
