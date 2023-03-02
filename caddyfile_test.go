@@ -57,3 +57,41 @@ func TestUnmarshal(t *testing.T) {
 		t.Errorf("incorrect timeout: expected %v, got %v", expectedTimeout, r.Timeout)
 	}
 }
+
+// Simulates being nested in another block.
+func TestUnmarshalNested(t *testing.T) {
+	input := `{
+				cloudflare {
+					interval 1.5h
+					timeout 30s
+				}
+				other_module 10h
+			}`
+
+	d := caddyfile.NewTestDispenser(input)
+
+	// Enter the outer block.
+	d.Next()
+	d.NextBlock(d.Nesting())
+
+	r := CloudflareIPRange{}
+	err := r.UnmarshalCaddyfile(d)
+	if err != nil {
+		t.Errorf("unmarshal error: %v", err)
+	}
+
+	expectedInterval := caddy.Duration(90 * time.Minute)
+	if expectedInterval != r.Interval {
+		t.Errorf("incorrect interval: expected %v, got %v", expectedInterval, r.Interval)
+	}
+
+	expectedTimeout := caddy.Duration(30 * time.Second)
+	if expectedTimeout != r.Timeout {
+		t.Errorf("incorrect timeout: expected %v, got %v", expectedTimeout, r.Timeout)
+	}
+
+	d.Next()
+	if d.Val() != "other_module" {
+		t.Errorf("cursor at unexpected position, expected 'other_module', got %v", d.Val())
+	}
+}

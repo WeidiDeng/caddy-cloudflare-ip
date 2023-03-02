@@ -147,35 +147,35 @@ func (s *CloudflareIPRange) GetIPRanges(_ *http.Request) []netip.Prefix {
 //	   timeout val
 //	}
 func (m *CloudflareIPRange) UnmarshalCaddyfile(d *caddyfile.Dispenser) error {
-	for d.Next() {
-		// No same-line options are supported
-		if d.NextArg() {
-			return d.ArgErr()
-		}
+	d.Next() // Skip module name.
 
-		for d.NextBlock(0) {
-			switch d.Val() {
-			case "interval":
-				if !d.NextArg() {
-					return d.ArgErr()
-				}
-				val, err := caddy.ParseDuration(d.Val())
-				if err != nil {
-					return err
-				}
-				m.Interval = caddy.Duration(val)
-			case "timeout":
-				if !d.NextArg() {
-					return d.ArgErr()
-				}
-				val, err := caddy.ParseDuration(d.Val())
-				if err != nil {
-					return err
-				}
-				m.Timeout = caddy.Duration(val)
-			default:
+	// No same-line options are supported
+	if d.NextArg() {
+		return d.ArgErr()
+	}
+
+	for nesting := d.Nesting(); d.NextBlock(nesting); {
+		switch d.Val() {
+		case "interval":
+			if !d.NextArg() {
 				return d.ArgErr()
 			}
+			val, err := caddy.ParseDuration(d.Val())
+			if err != nil {
+				return err
+			}
+			m.Interval = caddy.Duration(val)
+		case "timeout":
+			if !d.NextArg() {
+				return d.ArgErr()
+			}
+			val, err := caddy.ParseDuration(d.Val())
+			if err != nil {
+				return err
+			}
+			m.Timeout = caddy.Duration(val)
+		default:
+			return d.ArgErr()
 		}
 	}
 
