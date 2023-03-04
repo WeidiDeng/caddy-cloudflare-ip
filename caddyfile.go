@@ -3,14 +3,14 @@ package caddy_cloudflare_ip
 import (
 	"bufio"
 	"context"
-	"github.com/caddyserver/caddy/v2/caddyconfig/caddyfile"
-	"github.com/caddyserver/caddy/v2/modules/caddyhttp"
 	"net/http"
 	"net/netip"
 	"sync"
 	"time"
 
 	"github.com/caddyserver/caddy/v2"
+	"github.com/caddyserver/caddy/v2/caddyconfig/caddyfile"
+	"github.com/caddyserver/caddy/v2/modules/caddyhttp"
 )
 
 const (
@@ -44,8 +44,16 @@ func (CloudflareIPRange) CaddyModule() caddy.ModuleInfo {
 	}
 }
 
+// getContext returns a cancelable context, with a timeout if configured.
+func (s *CloudflareIPRange) getContext() (context.Context, context.CancelFunc) {
+	if s.Timeout > 0 {
+		return context.WithTimeout(s.ctx, time.Duration(s.Timeout))
+	}
+	return context.WithCancel(s.ctx)
+}
+
 func (s *CloudflareIPRange) fetch(api string) ([]netip.Prefix, error) {
-	ctx, cancel := context.WithTimeout(s.ctx, time.Duration(s.Timeout))
+	ctx, cancel := s.getContext()
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, api, nil)
@@ -139,35 +147,35 @@ func (s *CloudflareIPRange) GetIPRanges(_ *http.Request) []netip.Prefix {
 //	   timeout val
 //	}
 func (m *CloudflareIPRange) UnmarshalCaddyfile(d *caddyfile.Dispenser) error {
-	for d.Next() {
-		// No same-line options are supported
-		if d.NextArg() {
-			return d.ArgErr()
-		}
+	d.Next() // Skip module name.
 
-		for d.NextBlock(0) {
-			switch d.Val() {
-			case "interval":
-				if !d.NextArg() {
-					return d.ArgErr()
-				}
-				val, err := caddy.ParseDuration(d.Val())
-				if err != nil {
-					return err
-				}
-				m.Interval = caddy.Duration(val)
-			case "timeout":
-				if !d.NextArg() {
-					return d.ArgErr()
-				}
-				val, err := caddy.ParseDuration(d.Val())
-				if err != nil {
-					return err
-				}
-				m.Timeout = caddy.Duration(val)
-			default:
+	// No same-line options are supported
+	if d.NextArg() {
+		return d.ArgErr()
+	}
+
+	for nesting := d.Nesting(); d.NextBlock(nesting); {
+		switch d.Val() {
+		case "interval":
+			if !d.NextArg() {
 				return d.ArgErr()
 			}
+			val, err := caddy.ParseDuration(d.Val())
+			if err != nil {
+				return err
+			}
+			m.Interval = caddy.Duration(val)
+		case "timeout":
+			if !d.NextArg() {
+				return d.ArgErr()
+			}
+			val, err := caddy.ParseDuration(d.Val())
+			if err != nil {
+				return err
+			}
+			m.Timeout = caddy.Duration(val)
+		default:
+			return d.ArgErr()
 		}
 	}
 
