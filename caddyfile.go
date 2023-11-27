@@ -79,23 +79,28 @@ func (s *CloudflareIPRange) fetch(api string) ([]netip.Prefix, error) {
 	return prefixes, nil
 }
 
-func (s *CloudflareIPRange) Provision(ctx caddy.Context) error {
-	s.ctx = ctx
-	s.lock = new(sync.RWMutex)
-
+func (s *CloudflareIPRange) getPrefixes() ([]netip.Prefix, error) {
+	var fullPrefixes []netip.Prefix
 	// fetch ipv4 list
 	prefixes, err := s.fetch(ipv4)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	s.ranges = append(s.ranges, prefixes...)
+	fullPrefixes = append(fullPrefixes, prefixes...)
 
 	// fetch ipv6 list
 	prefixes, err = s.fetch(ipv6)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	s.ranges = append(s.ranges, prefixes...)
+	fullPrefixes = append(fullPrefixes, prefixes...)
+
+	return fullPrefixes, nil
+}
+
+func (s *CloudflareIPRange) Provision(ctx caddy.Context) error {
+	s.ctx = ctx
+	s.lock = new(sync.RWMutex)
 
 	// update in background
 	go s.refreshLoop()
@@ -108,21 +113,18 @@ func (s *CloudflareIPRange) refreshLoop() {
 	}
 
 	ticker := time.NewTicker(time.Duration(s.Interval))
+	// first time update
+	s.lock.Lock()
+	// it's nil anyway if there is an error
+	s.ranges, _ = s.getPrefixes()
+	s.lock.Unlock()
 	for {
 		select {
 		case <-ticker.C:
-			var fullPrefixes []netip.Prefix
-			prefixes, err := s.fetch(ipv4)
+			fullPrefixes, err := s.getPrefixes()
 			if err != nil {
 				break
 			}
-			fullPrefixes = append(fullPrefixes, prefixes...)
-
-			prefixes, err = s.fetch(ipv6)
-			if err != nil {
-				break
-			}
-			fullPrefixes = append(fullPrefixes, prefixes...)
 
 			s.lock.Lock()
 			s.ranges = fullPrefixes
